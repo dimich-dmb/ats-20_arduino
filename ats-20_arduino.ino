@@ -114,6 +114,8 @@ const uint16_t cmd_0x15_size = sizeof cmd_0x15;         // Array of lines where 
 
 #define STORE_TIME 10000 // Time of inactivity to make the current receiver status writable (10s / 10000 milliseconds).
 
+#define ARRAY_SIZE(x)   (sizeof(x)/sizeof(*x))
+
 const uint8_t app_id =  39; // Useful to check the EEPROM content before processing useful data
 const int eeprom_address = 0;
 long storeTime = millis();
@@ -158,6 +160,7 @@ Bandwidth bandwidthSSB[] = {
   {2, "3.0"},  // 4  - default
   {3, "4.0"}   // 5
 }; // 3 = 4kHz
+#define bwIdxSSB_last (ARRAY_SIZE(bandwidthSSB) - 1)
 
 int8_t bwIdxAM = 4;
 const int maxFilterAM = 15;
@@ -170,6 +173,7 @@ Bandwidth bandwidthAM[] = {
   {1, "4.0"},   // 5
   {0, "6.0"}    // 6 
 };
+#define bwIdxAM_last (ARRAY_SIZE(bandwidthAM) - 1)
 
 int8_t bwIdxFM = 0;
 Bandwidth bandwidthFM[] = {
@@ -179,6 +183,7 @@ Bandwidth bandwidthFM[] = {
   {3, " 60"},
   {4, " 40"}
 };
+#define bwIdxFM_last (ARRAY_SIZE(bandwidthFM) - 1)
 
 
 // Atenuação and AGC
@@ -383,10 +388,10 @@ void readAllReceiverInformation() {
   
   if (currentMode == LSB || currentMode == USB) {
       loadSSB();
-      bwIdxSSB = (bwIdx > 5)? 5: bwIdx;
+      bwIdxSSB = (bwIdx > bwIdxSSB_last) ? bwIdxSSB_last : bwIdx;
       si4735.setSSBAudioBandwidth(bandwidthSSB[bwIdxSSB].idx);
       // If audio bandwidth selected is about 2 kHz or below, it is recommended to set Sideband Cutoff Filter to 0.
-      if (bandwidthSSB[bwIdxSSB].idx == 0 || bandwidthSSB[bwIdxSSB].idx == 4 || bandwidthSSB[bwIdxSSB].idx == 5)
+      if (bwIdxSSB <= 2)
           si4735.setSSBSidebandCutoffFilter(0);
        else
           si4735.setSSBSidebandCutoffFilter(1);
@@ -838,12 +843,12 @@ void loop()
       if (currentMode == LSB || currentMode == USB)
       {
         bwIdxSSB++;
-        if (bwIdxSSB > 5)
+        if (bwIdxSSB > bwIdxSSB_last)
           bwIdxSSB = 0;
         band[bandIdx].bandwidth = bwIdxSSB;
         si4735.setSSBAudioBandwidth(bandwidthSSB[bwIdxSSB].idx);
         // If audio bandwidth selected is about 2 kHz or below, it is recommended to set Sideband Cutoff Filter to 0.
-        if (bandwidthSSB[bwIdxSSB].idx == 0 || bandwidthSSB[bwIdxSSB].idx == 4 || bandwidthSSB[bwIdxSSB].idx == 5)
+        if (bwIdxSSB <=2 )
           si4735.setSSBSidebandCutoffFilter(0);
         else
           si4735.setSSBSidebandCutoffFilter(1);
@@ -851,16 +856,16 @@ void loop()
       else if (currentMode == AM)
       {
         bwIdxAM++;
-        if (bwIdxAM > 6)
+        if (bwIdxAM > bwIdxAM_last)
           bwIdxAM = 0;
           band[bandIdx].bandwidth = bwIdxAM;
           si4735.setBandwidth(bandwidthAM[bwIdxAM].idx, 1);
       } else {
         bwIdxFM++;
-        if (bwIdxFM > 4)
+        if (bwIdxFM > bwIdxFM_last)
           bwIdxFM = 0;
         else if (bwIdxFM < 0)
-          bwIdxFM = 4;
+          bwIdxFM = bwIdxFM_last;
         band[bandIdx].bandwidth = bwIdxFM; 
         si4735.setFmBandwidth(bandwidthFM[bwIdxFM].idx);
       }
