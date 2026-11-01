@@ -212,29 +212,22 @@ typedef struct
    Turn your receiver on with the encoder push button pressed at first time to RESET the eeprom content.  
 */
 Band band[] = {
-  {FM_BAND_TYPE, 6400, 8400, 7000, 10, 0},  // FM from 64 to 84 MHz
+  {FM_BAND_TYPE, 6400,  8400,  7000, 10, 0},  // FM from 64 to 84 MHz
   {FM_BAND_TYPE, 8400, 10800, 10570, 10, 0},
-  {LW_BAND_TYPE, 100, 510, 300, 1, 4},
-  {MW_BAND_TYPE, 520, 1720, 810, 10, 4},  
-  {MW_BAND_TYPE, 531, 1701, 783, 9, 4},   // MW for Europe, Africa and Asia
-  {SW_BAND_TYPE, 1800, 3500, 1900, 1, 4}, // 160 meters
-  {SW_BAND_TYPE, 3500, 4500, 3700, 1, 5}, // 80 meters
-  {SW_BAND_TYPE, 4500, 5500, 4850, 5, 4},
-  {SW_BAND_TYPE, 5600, 6300, 6000, 5, 4},
-  {SW_BAND_TYPE, 6800, 7800, 7200, 5, 4}, // 40 meters
-  {SW_BAND_TYPE, 9200, 10000, 9600, 5, 4},
-  {SW_BAND_TYPE, 10000, 11000, 10100, 1, 4}, // 30 meters
-  {SW_BAND_TYPE, 11200, 12500, 11940, 5, 4},
-  {SW_BAND_TYPE, 13400, 13900, 13600, 5, 4},
-  {SW_BAND_TYPE, 14000, 14500, 14200, 1, 4}, // 20 meters
-  {SW_BAND_TYPE, 15000, 15900, 15300, 5, 4},
-  {SW_BAND_TYPE, 17200, 17900, 17600, 5, 4},
-  {SW_BAND_TYPE, 18000, 18300, 18100, 1, 4},  // 17 meters
-  {SW_BAND_TYPE, 21000, 21900, 21200, 1, 4},  // 15 mters
-  {SW_BAND_TYPE, 24890, 26200, 24940, 1, 4},  // 12 meters
+  {LW_BAND_TYPE,   100,   530,   300, 1, 4},
+  {MW_BAND_TYPE,   531,  1701,   783, 9, 4},   // MW for Europe, Africa and Asia
+  {SW_BAND_TYPE,  1800,  3500,  1900, 5, 4}, // 160 meters
+  {SW_BAND_TYPE,  3500,  3800,  3650, 1, 4}, // 80 meters amateur
+  {SW_BAND_TYPE,  3800,  4500,  3700, 5, 4}, // 80 meters broadcast
+  {SW_BAND_TYPE,  4500,  7000,  6000, 5, 4},
+  {SW_BAND_TYPE,  7000,  7200,  7100, 1, 4}, // 40 meters amateur
+  {SW_BAND_TYPE,  7200,  7800,  7200, 5, 4}, // 40 meters
+  {SW_BAND_TYPE,  7800, 14000,  9600, 5, 4},
+  {SW_BAND_TYPE, 14000, 14500, 14200, 5, 4}, // 20 meters
+  {SW_BAND_TYPE, 14500, 26200, 15000, 5, 4},
   {SW_BAND_TYPE, 26200, 27900, 27500, 1, 4},  // CB band (11 meters)
-  {SW_BAND_TYPE, 28000, 30000, 28400, 1, 4}   // 10 meters
-}; 
+  {SW_BAND_TYPE, 27900, 30000, 28400, 5, 4}   // 10 meters
+};
 
 const int lastBand = (sizeof band / sizeof(Band)) - 1;
 int bandIdx = 1;
