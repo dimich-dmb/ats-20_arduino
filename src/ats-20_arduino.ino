@@ -1,45 +1,45 @@
 /*
-  This sketch SHOULD work with the Chinese KIT sold on AliExpress, eBay and Amazon 
-  ATTENTION:  
-  IT IS NOT TESTED ENOUGH. SO, DO NOT TRY IT IF YOU DON'T KNOW WHAT ARE YOU DOING. 
+  This sketch SHOULD work with the Chinese KIT sold on AliExpress, eBay and Amazon
+  ATTENTION:
+  IT IS NOT TESTED ENOUGH. SO, DO NOT TRY IT IF YOU DON'T KNOW WHAT ARE YOU DOING.
   YOU MUST BE ABLE TO GO BACK TO THE PREVIOUS VERSION IF THIS SKETCH DOES NOT WORK FOR YOU.
-  
-  New features: 
 
-   1) The final code (HEX file) is about 2.5K smaller than the previous one (now  you have more memory to add new features); 
+  New features:
+
+   1) The final code (HEX file) is about 2.5K smaller than the previous one (now  you have more memory to add new features);
    2) All the previous status of the receiver can be rescued when you turn it on (including SSB mode, bandwidth, volume, frequency, BFO etc);
    3) The bandwidth now is a property of the band (you can use different bandwidth for different bands);
-   4) Bandwidth control on FM mode (Auto, 110, 84, 60 and 40 kHz); 
-   5) FM/RDS presentation improved; 
+   4) Bandwidth control on FM mode (Auto, 110, 84, 60 and 40 kHz);
+   5) FM/RDS presentation improved;
    6) The seek function was improved (it is more precise on FM mode). The seek direction is controlled by the encoder (clockwise or counter-clockwise . Press encoder push button for seeking;
    7) Steps: 1, 5, 9, 10 and 50 kHz;
    8) Now you can configure MW band space to 9 or 10 kHz;
    9) New FM band from 64 to 84 MHz;
-  10) Added a MW band for Europe, Africa and Asia 
+  10) Added a MW band for Europe, Africa and Asia
   11) The frequency on Display is bigger than the previous version;
   12) Now the bandwidth sequence is ordered by bandwidth values.
 
-  ATTENTION: Turn your receiver on with the encoder push button pressed at first time to RESET the eeprom content.  
+  ATTENTION: Turn your receiver on with the encoder push button pressed at first time to RESET the eeprom content.
 
-  ARDUINO LIBRARIES: 
+  ARDUINO LIBRARIES:
   1) This sketch uses the Rotary Encoder Class implementation from Ben Buxton (the source code is included together with this sketch). You do not need to install it;
-  2) Tiny4kOLED Library and TinyOLED-Fonts (on your Arduino IDE, look for this library on Tools->Manage Libraries). 
-  3) PU2CLR SI4735 Arduino Library (on your Arduino IDE look for this library on Tools->Manage Libraries). 
+  2) Tiny4kOLED Library and TinyOLED-Fonts (on your Arduino IDE, look for this library on Tools->Manage Libraries).
+  3) PU2CLR SI4735 Arduino Library (on your Arduino IDE look for this library on Tools->Manage Libraries).
 
 
   ABOUT THE EEPROM:
 
-  ATMEL says the lifetime of an EEPROM memory position is about 100,000 writes.  
-  For this reason, this sketch tries to avoid save unnecessary writes into the eeprom. 
-  So, the condition to store any status of the receiver is changing the frequency,  bandwidth, volume, band or step  and 10 seconds of inactivity. 
-  For example, if you switch the band and turn the receiver off immediately, no news information will be written into the eeprom.  
-  But you wait 10 seconds after changing anything, all new information will be written. 
+  ATMEL says the lifetime of an EEPROM memory position is about 100,000 writes.
+  For this reason, this sketch tries to avoid save unnecessary writes into the eeprom.
+  So, the condition to store any status of the receiver is changing the frequency,  bandwidth, volume, band or step  and 10 seconds of inactivity.
+  For example, if you switch the band and turn the receiver off immediately, no news information will be written into the eeprom.
+  But you wait 10 seconds after changing anything, all new information will be written.
 
 
-  ABOUT SSB PATCH:  
- 
-  First of all, it is important to say that the SSB patch content is not part of this library. The paches used here were made available by Mr. 
-  Vadim Afonkin on his Dropbox repository. It is important to note that the author of this library does not encourage anyone to use the SSB patches 
+  ABOUT SSB PATCH:
+
+  First of all, it is important to say that the SSB patch content is not part of this library. The paches used here were made available by Mr.
+  Vadim Afonkin on his Dropbox repository. It is important to note that the author of this library does not encourage anyone to use the SSB patches
   content for commercial purposes. In other words, this library only supports SSB patches, the patches themselves are not part of this library.
 
   In this context, a patch is a piece of software used to change the behavior of the SI4735 device.
@@ -99,6 +99,8 @@ const uint16_t cmd_0x15_size = sizeof cmd_0x15;         // Array of lines where 
 #define STEP_SWITCH 10     // Used to select the increment or decrement frequency step (1, 5 or 10 kHz)
 #define BFO_SWITCH 14      // Used to select the enconder control (BFO or VFO)
 
+#define BAT_VOLTAGE_PIN PIN_A2
+
 #define MIN_ELAPSED_TIME 100
 #define MIN_ELAPSED_RSSI_TIME 150
 
@@ -144,7 +146,7 @@ uint8_t currentStep = 1;
 uint8_t currentBFOStep = 25;
 
 // Datatype to deal with bandwidth on AM, SSB and FM in numerical order.
-// Ordering by bandwidth values.   
+// Ordering by bandwidth values.
 typedef struct
 {
   uint8_t idx;      // SI473X device bandwidth index value
@@ -153,7 +155,7 @@ typedef struct
 
 int8_t bwIdxSSB = 4;
 Bandwidth bandwidthSSB[] = {
-  {4, "0.5"},  // 0  
+  {4, "0.5"},  // 0
   {5, "1.0"},  // 1
   {0, "1.2"},  // 2
   {1, "2.2"},  // 3
@@ -169,9 +171,9 @@ Bandwidth bandwidthAM[] = {
   {5, "1.8"},   // 1
   {3, "2.0"},   // 2
   {6, "2.5"},   // 3
-  {2, "3.0"},   // 4 - default 
+  {2, "3.0"},   // 4 - default
   {1, "4.0"},   // 5
-  {0, "6.0"}    // 6 
+  {0, "6.0"}    // 6
 };
 #define bwIdxAM_last (ARRAY_SIZE(bandwidthAM) - 1)
 
@@ -208,8 +210,8 @@ typedef struct
    Band table
    To add a new band, all you have to do is insert a new line in the table below. No extra code will be needed.
    Remove or comment a line if you do not want a given band
-   You have to RESET the eeprom after modiging this table. 
-   Turn your receiver on with the encoder push button pressed at first time to RESET the eeprom content.  
+   You have to RESET the eeprom after modiging this table.
+   Turn your receiver on with the encoder push button pressed at first time to RESET the eeprom content.
 */
 Band band[] = {
   {FM_BAND_TYPE, 6400,  8400,  7000, 10, 0},  // FM from 64 to 84 MHz
@@ -240,6 +242,35 @@ uint8_t volume = DEFAULT_VOLUME;
 Rotary encoder = Rotary(ENCODER_PIN_A, ENCODER_PIN_B);
 SI4735 si4735;
 
+void show_battery_voltage()
+{
+  // TODO: check voltage divider presense
+  // Assuming reference is AVCC
+
+  analogRead(BAT_VOLTAGE_PIN); // discard first read
+
+  uint8_t count = 3;
+  do {
+    auto vbat_raw = analogRead(BAT_VOLTAGE_PIN);
+    // Inaccurate but simple
+    auto vbat_cv = vbat_raw * 123ul / 256;     // Vref * 1.5 / 1023
+
+    char vbat_str[5]; // TODO: check convertToChar() correctness
+    convertToChar(vbat_cv, vbat_str, sizeof(vbat_str)-1, 2, '.');
+
+    oled.setCursor(0, 3);
+    oled.print("Vbat: ");
+    oled.print(vbat_str);
+    oled.print(" V");
+    delay(250); // TODO: don't wait 250 ms if BAND- was pressed but then released
+
+    if (count) {
+      --count;
+    }
+    // Hold BAND- to extend splash)
+  } while (count || (digitalRead(BAND_BUTTON_DOWN) == LOW));
+}
+
 void setup()
 {
   // Encoder pins
@@ -262,31 +293,27 @@ void setup()
   oled.setFont(FONT6X8);
 
   // Splash - Change it for your introduction text.
-  oled.setCursor(40, 0);
-  oled.print("SI473X");
-  oled.setCursor(20, 1);
-  oled.print("Arduino Library");
-  delay(500);
-  oled.setCursor(15, 2);
-  oled.print("All in One Radio");
-  delay(500);
-  oled.setCursor(10, 3);
-  oled.print("V3.0.4 - By PU2CLR");
-  delay(1000);
-  // end Splash
+  oled.setCursor((128-6*6)/2, 0);
+  oled.print("Si473X");
+  oled.setCursor((128-16*6)/2, 1);
+  oled.print("V3.0.4 by PU2CLR");
+
+  oled.setCursor(0, 2);
+  oled.print("FW " SOURCE_VERSION);
 
   // If you want to reset the eeprom, keep the ENCODER_PUSH_BUTTON (BFO_SWITCH) button pressed during statup
   if (digitalRead(BFO_SWITCH) == LOW)
   {
-    oled.clear();
     EEPROM.write(eeprom_address, 0);
-    oled.setCursor(0, 0);
-    oled.print("EEPROM RESETED");
-    delay(2000);
-    oled.clear();
+    oled.setCursor((128-14*6)/2, 3);
+    oled.print("EEPROM RESET");
+    delay(1000);
+    oled.setCursor((128-14*6)/2, 3);
+    oled.print("            ");
   }
 
-  delay(2000);
+  show_battery_voltage();
+
   // end Splash
 
   // Encoder interrupt
@@ -295,15 +322,13 @@ void setup()
 
   si4735.getDeviceI2CAddress(RESET_PIN); // Looks for the I2C bus address and set it.  Returns 0 if error
 
-  si4735.setup(RESET_PIN, MW_BAND_TYPE); // 
-  delay(300);
+  si4735.setup(RESET_PIN, MW_BAND_TYPE);
 
   // Checking the EEPROM content
   if (EEPROM.read(eeprom_address) == app_id)
   {
     readAllReceiverInformation();
   }
-
 
   // Set up the radio for the current band (see index table variable bandIdx )
   useBand();
@@ -378,7 +403,7 @@ void readAllReceiverInformation() {
   previousFrequency = currentFrequency = band[bandIdx].currentFreq;
   currentStep = band[bandIdx].currentStep;
   bwIdx = band[bandIdx].bandwidth;
-  
+
   if (currentMode == LSB || currentMode == USB) {
       loadSSB();
       bwIdxSSB = (bwIdx > bwIdxSSB_last) ? bwIdxSSB_last : bwIdx;
@@ -407,7 +432,7 @@ void resetEepromDelay() {
 }
 
 /*
- * Clean the content of the third line (line 2 - remember the first line is 0)    
+ * Clean the content of the third line (line 2 - remember the first line is 0)
  */
 void cleanBfoRdsInfo()
 {
@@ -416,14 +441,14 @@ void cleanBfoRdsInfo()
 }
 
 /**
- * Converts a number to a char string and places leading zeros. 
- * It is useful to mitigate memory space used by sprintf or generic similar function 
- * 
+ * Converts a number to a char string and places leading zeros.
+ * It is useful to mitigate memory space used by sprintf or generic similar function
+ *
  * value  - value to be converted
  * strValue - the value will be receive the value converted
- * len -  final string size (in bytes) 
+ * len -  final string size (in bytes)
  * dot - the decimal or tousand separator position
- * separator -  symbol "." or "," 
+ * separator -  symbol "." or ","
  */
 void convertToChar(uint16_t value, char *strValue, uint8_t len, uint8_t dot, uint8_t separator)
 {
@@ -566,7 +591,7 @@ void showRSSI()
     if (si4735.getCurrentPilot() )  {
        oled.invertOutput(true);
        oled.print("s");
-     } 
+     }
     oled.invertOutput(false);
   }
 }
@@ -638,21 +663,21 @@ char oldBuffer[15];
 
 
 /*
- * Show the Station Name. 
+ * Show the Station Name.
  */
 void showRDSStation()
 {
   char *po, *pc;
   int col = 0;
-  
+
   po = oldBuffer;
   pc = stationName;
   while (*pc) {
     if ( *po != *pc ) {
         oled.setCursor(col, 2);
-        oled.print(*pc); 
+        oled.print(*pc);
     }
-    *po = *pc;    
+    *po = *pc;
     po++;
     pc++;
     col+=10;
@@ -734,7 +759,7 @@ void loadSSB()
   si4735.patchPowerUp();
   delay(50);
   si4735.downloadCompressedPatch(ssb_patch_content, size_content, cmd_0x15, cmd_0x15_size);
-  si4735.setSSBConfig(bandwidthSSB[bwIdxSSB].idx, 1, 0, 1, 0, 1);    
+  si4735.setSSBConfig(bandwidthSSB[bwIdxSSB].idx, 1, 0, 1, 0, 1);
   si4735.setI2CStandardMode();
   ssbLoaded = true;
   // oled.clear();
@@ -758,8 +783,8 @@ void useBand()
     si4735.setSeekFmSpacing(1);
     bfoOn = ssbLoaded = false;
     si4735.setRdsConfig(1, 2, 2, 2, 2);
-    bwIdxFM = band[bandIdx].bandwidth; 
-    si4735.setFmBandwidth(bandwidthFM[bwIdxFM].idx);    
+    bwIdxFM = band[bandIdx].bandwidth;
+    si4735.setFmBandwidth(bandwidthFM[bwIdxFM].idx);
   }
   else
   {
@@ -775,7 +800,7 @@ void useBand()
       si4735.setSsbSoftMuteMaxAttenuation(0); // Disable Soft Mute for SSB
       bwIdxSSB = band[bandIdx].bandwidth;
       si4735.setSSBAudioBandwidth(bandwidthSSB[bwIdxSSB].idx);
-      si4735.setSSBBfo(currentBFO);   
+      si4735.setSSBBfo(currentBFO);
     }
     else
     {
@@ -784,7 +809,7 @@ void useBand()
       si4735.setAutomaticGainControl(disableAgc, agcNdx);
       si4735.setAmSoftMuteMaxAttenuation(6); // // Disable Soft Mute for AM
       bwIdxAM = band[bandIdx].bandwidth;
-      si4735.setBandwidth(bandwidthAM[bwIdxAM].idx, 1);      
+      si4735.setBandwidth(bandwidthAM[bwIdxAM].idx, 1);
       bfoOn = false;
     }
     si4735.setSeekAmLimits(band[bandIdx].minimumFreq, band[bandIdx].maximumFreq);           // Consider the range all defined current band
@@ -859,7 +884,7 @@ void loop()
           bwIdxFM = 0;
         else if (bwIdxFM < 0)
           bwIdxFM = bwIdxFM_last;
-        band[bandIdx].bandwidth = bwIdxFM; 
+        band[bandIdx].bandwidth = bwIdxFM;
         si4735.setFmBandwidth(bandwidthFM[bwIdxFM].idx);
       }
       showStatus();
@@ -905,9 +930,9 @@ void loop()
         delay(30);
         if (currentMode == FM)
         {
-          float f = round(si4735.getFrequency() / 10.0); 
+          float f = round(si4735.getFrequency() / 10.0);
           currentFrequency = (uint16_t) f * 10; // adjusts band space from 1 (10kHz) to 10 (100 kHz)
-          si4735.setFrequency(currentFrequency); 
+          si4735.setFrequency(currentFrequency);
         }
         else
         {
