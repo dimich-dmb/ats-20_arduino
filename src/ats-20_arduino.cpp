@@ -870,8 +870,8 @@ void loop()
         bwIdxAM++;
         if (bwIdxAM > bwIdxAM_last)
           bwIdxAM = 0;
-          band[bandIdx].bandwidth = bwIdxAM;
-          si4735.setBandwidth(bandwidthAM[bwIdxAM].idx, 1);
+        band[bandIdx].bandwidth = bwIdxAM;
+        si4735.setBandwidth(bandwidthAM[bwIdxAM].idx, 1);
       } else {
         bwIdxFM++;
         if (bwIdxFM > bwIdxFM_last)
