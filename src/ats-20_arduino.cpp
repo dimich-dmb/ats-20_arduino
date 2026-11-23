@@ -415,14 +415,12 @@ void showVolume()
 void showBFO()
 {
   oled.setCursor(0, 2);
-  oled.print("         ");
-  oled.setCursor(0, 2);
   oled.print("BFO: ");
   oled.print(currentBFO);
-  oled.print("Hz ");
+  oled.print(" Hz");
 
-  oled.setCursor(93, 2);
-  oled.print("    ");
+  oled.fillLength(0, 93 - oled.getCursorX());
+
   oled.setCursor(93, 2);
   oled.print("S:");
   oled.print(currentBFOStep);
