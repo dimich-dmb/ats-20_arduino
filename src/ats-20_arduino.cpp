@@ -155,7 +155,6 @@ typedef struct
   const char *desc; // bandwidth description
 } Bandwidth;
 
-int8_t bwIdxSSB = 4;
 Bandwidth bandwidthSSB[] = {
   {4, "0.5"},  // 0
   {5, "1.0"},  // 1
@@ -164,9 +163,10 @@ Bandwidth bandwidthSSB[] = {
   {2, "3.0"},  // 4  - default
   {3, "4.0"}   // 5
 }; // 3 = 4kHz
+#define bwIdxSSB_default 4
 #define bwIdxSSB_last (ARRAY_SIZE(bandwidthSSB) - 1)
+uint8_t bwIdxSSB = bwIdxSSB_default;
 
-int8_t bwIdxAM = 4;
 const int maxFilterAM = 15;
 Bandwidth bandwidthAM[] = {
   {4, "1.0"},   // 0
@@ -177,9 +177,10 @@ Bandwidth bandwidthAM[] = {
   {1, "4.0"},   // 5
   {0, "6.0"}    // 6
 };
+#define bwIdxAM_default 4
 #define bwIdxAM_last (ARRAY_SIZE(bandwidthAM) - 1)
+uint8_t bwIdxAM = bwIdxAM_default;
 
-int8_t bwIdxFM = 0;
 Bandwidth bandwidthFM[] = {
   {0, "AUT"}, // Automatic - default
   {1, "110"}, // Force wide (110 kHz) channel filter.
@@ -187,8 +188,9 @@ Bandwidth bandwidthFM[] = {
   {3, " 60"},
   {4, " 40"}
 };
+#define bwIdxFM_default 0
 #define bwIdxFM_last (ARRAY_SIZE(bandwidthFM) - 1)
-
+uint8_t bwIdxFM = bwIdxFM_default;
 
 // Atenuação and AGC
 uint8_t agcIdx = 0;
@@ -205,7 +207,7 @@ typedef struct
   uint16_t maximumFreq; // maximum frequency of the band
   uint16_t currentFreq; // Default frequency or current frequency
   uint16_t currentStep; // Defeult step (increment and decrement)
-  int8_t  bandwidth;  // Bandwidth local table index.
+  uint8_t  bandwidth;  // Bandwidth local table index.
 } Band;
 
 /*
@@ -232,9 +234,9 @@ Band band[] = {
   {SW_BAND_TYPE, 26200, 27900, 27500, 1, 4},  // CB band (11 meters)
   {SW_BAND_TYPE, 27900, 30000, 28400, 5, 4}   // 10 meters
 };
-
-const int lastBand = (sizeof band / sizeof(Band)) - 1;
-int bandIdx = 1;
+#define band_default 1
+#define band_last (ARRAY_SIZE(band) - 1)
+uint8_t bandIdx = band_default;
 
 uint8_t rssi = 0;
 uint8_t stereo = 1;
@@ -582,51 +584,62 @@ void useBand()
    EEPROM receiver status
 */
 
-void saveAllReceiverInformation() {
-  int addr_offset;
-  EEPROM.update(eeprom_address, app_id); // stores the app id;
-  EEPROM.update(eeprom_address + 1, si4735.getVolume()); // stores the current Volume
-  EEPROM.update(eeprom_address + 2, bandIdx); // Stores the current band
-  EEPROM.update(eeprom_address + 3, currentMode); // Stores the current Mode (FM / AM / SSB)
-  EEPROM.update(eeprom_address + 4, currentBFO >> 8);
-  EEPROM.update(eeprom_address + 5, currentBFO &  0XFF);
+// TODO: refactor config storage
 
-  addr_offset = 6;
+void saveAllReceiverInformation()
+{
+  int addr = eeprom_address;
+  EEPROM.update(addr++, app_id); // stores the app id;
+  EEPROM.update(addr++, si4735.getVolume()); // stores the current Volume
+  EEPROM.update(addr++, bandIdx); // Stores the current band
+  EEPROM.update(addr++, currentMode); // Stores the current Mode (FM / AM / SSB)
+  EEPROM.update(addr++, currentBFO >> 8);
+  EEPROM.update(addr++, currentBFO &  0XFF);
+
   band[bandIdx].currentFreq = currentFrequency;
 
-  for (int i = 0; i <= lastBand; i++) {
-    EEPROM.update(addr_offset++, (band[i].currentFreq >> 8) );   // stores the current Frequency HIGH byte for the band
-    EEPROM.update(addr_offset++, (band[i].currentFreq & 0xFF));  // stores the current Frequency LOW byte for the band
-    EEPROM.update(addr_offset++, band[i].currentStep);          // Stores current step of the band
-    EEPROM.update(addr_offset++, band[i].bandwidth);           // table index (direct position) of bandwidth
+  for (size_t i = 0; i <= band_last; i++) {
+    EEPROM.update(addr++, (band[i].currentFreq >> 8) );   // stores the current Frequency HIGH byte for the band
+    EEPROM.update(addr++, (band[i].currentFreq & 0xFF));  // stores the current Frequency LOW byte for the band
+    EEPROM.update(addr++, band[i].currentStep);          // Stores current step of the band
+    EEPROM.update(addr++, band[i].bandwidth);           // table index (direct position) of bandwidth
   }
 }
 
 
-void readAllReceiverInformation() {
-  int addr_offset;
-  int bwIdx;
-  volume = EEPROM.read(eeprom_address + 1); // Gets the stored volume;
-  bandIdx = EEPROM.read(eeprom_address + 2);
-  currentMode = EEPROM.read(eeprom_address + 3);
-  currentBFO = EEPROM.read(eeprom_address + 4) << 8;
-  currentBFO |= EEPROM.read(eeprom_address + 5);
+void readAllReceiverInformation()
+{
+  int addr = eeprom_address;
+  // Checking the EEPROM content
+  if (EEPROM.read(addr++) != app_id)
+  {
+    return;
+  }
 
-  addr_offset = 6;
-  for (int i = 0; i <= lastBand; i++) {
-    band[i].currentFreq = EEPROM.read(addr_offset++) << 8;
-    band[i].currentFreq |= EEPROM.read(addr_offset++);
-    band[i].currentStep = EEPROM.read(addr_offset++);
-    band[i].bandwidth = EEPROM.read(addr_offset++);
+  volume = EEPROM.read(addr++); // Gets the stored volume;
+  bandIdx = EEPROM.read(addr++);
+  currentMode = EEPROM.read(addr++);
+  currentBFO = EEPROM.read(addr++) << 8;
+  currentBFO |= EEPROM.read(addr++);
+
+  for (size_t i = 0; i <= band_last; i++) {
+    band[i].currentFreq = EEPROM.read(addr++) << 8;
+    band[i].currentFreq |= EEPROM.read(addr++);
+    band[i].currentStep = EEPROM.read(addr++);
+    band[i].bandwidth = EEPROM.read(addr++);
+  }
+
+  if (bandIdx > band_last) {
+    bandIdx = band_default;
   }
 
   previousFrequency = currentFrequency = band[bandIdx].currentFreq;
   currentStep = band[bandIdx].currentStep;
-  bwIdx = band[bandIdx].bandwidth;
+  uint8_t bwIdx = band[bandIdx].bandwidth;
 
   if (currentMode == LSB || currentMode == USB) {
       loadSSB();
-      bwIdxSSB = (bwIdx > bwIdxSSB_last) ? bwIdxSSB_last : bwIdx;
+      bwIdxSSB = (bwIdx > bwIdxSSB_last) ? bwIdxSSB_default : bwIdx;
       si4735.setSSBAudioBandwidth(bandwidthSSB[bwIdxSSB].idx);
       // If audio bandwidth selected is about 2 kHz or below, it is recommended to set Sideband Cutoff Filter to 0.
       if (bwIdxSSB <= 2)
@@ -635,10 +648,10 @@ void readAllReceiverInformation() {
           si4735.setSSBSidebandCutoffFilter(1);
    }
    else if (currentMode == AM) {
-        bwIdxAM = bwIdx;
+        bwIdxAM = (bwIdx > bwIdxAM_last) ? bwIdxAM_default : bwIdx;
         si4735.setBandwidth(bandwidthAM[bwIdxAM].idx, 1);
    } else {
-        bwIdxFM = bwIdx;
+        bwIdxFM = (bwIdx > bwIdxFM_last) ? bwIdxFM_default : bwIdx;
         si4735.setFmBandwidth(bandwidthFM[bwIdxFM].idx);
    }
 }
@@ -689,12 +702,7 @@ void bandUp()
   band[bandIdx].currentFreq = currentFrequency;
   band[bandIdx].currentStep = currentStep;
 
-  if (bandIdx < lastBand)
-  {
-    bandIdx++;
-  }
-  else
-  {
+  if (++bandIdx > band_last) {
     bandIdx = 0;
   }
   useBand();
@@ -708,13 +716,10 @@ void bandDown()
   // save the current frequency for the band
   band[bandIdx].currentFreq = currentFrequency;
   band[bandIdx].currentStep = currentStep;
-  if (bandIdx > 0)
+
+  if (--bandIdx > band_last)
   {
-    bandIdx--;
-  }
-  else
-  {
-    bandIdx = lastBand;
+    bandIdx = band_last;
   }
   useBand();
 }
@@ -801,11 +806,7 @@ void setup()
 
   si4735.setup(RESET_PIN, MW_BAND_TYPE);
 
-  // Checking the EEPROM content
-  if (EEPROM.read(eeprom_address) == app_id)
-  {
-    readAllReceiverInformation();
-  }
+  readAllReceiverInformation();
 
   // Set up the radio for the current band (see index table variable bandIdx )
   useBand();
