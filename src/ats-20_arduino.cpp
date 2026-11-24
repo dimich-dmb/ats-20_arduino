@@ -301,9 +301,8 @@ void loadSSB()
  * strValue - the value will be receive the value converted
  * len -  final string size (in bytes)
  * dot - the decimal or tousand separator position
- * separator -  symbol "." or ","
  */
-void convertToChar(uint16_t value, char *strValue, uint8_t len, uint8_t dot, uint8_t separator)
+void convertToChar(uint16_t value, char *strValue, uint8_t len, uint8_t dot)
 {
   char d;
   for (int i = (len - 1); i >= 0; i--)
@@ -317,7 +316,7 @@ void convertToChar(uint16_t value, char *strValue, uint8_t len, uint8_t dot, uin
     for (int i = len; i >= dot ; i-- ) {
       strValue[i + 1] = strValue[i];
     }
-    strValue[dot] = separator;
+    strValue[dot] = '.';
   }
 
   if (strValue[0] == '0') {
@@ -335,15 +334,15 @@ void showFrequency()
 
   if (band[bandIdx].bandType == FM_BAND_TYPE)
   {
-    convertToChar(currentFrequency, freqDisplay, 5, 3, ',');
+    convertToChar(currentFrequency, freqDisplay, 5, 3);
     unit = (char *)"MHz";
   }
   else {
     unit = (char *)"kHz";
     if (band[bandIdx].bandType == MW_BAND_TYPE || band[bandIdx].bandType == LW_BAND_TYPE)
-      convertToChar(currentFrequency, freqDisplay, 5, 0, '.');
+      convertToChar(currentFrequency, freqDisplay, 5, 0);
     else
-      convertToChar(currentFrequency, freqDisplay, 5, 2, '.');
+      convertToChar(currentFrequency, freqDisplay, 5, 2);
   }
 
   oled.invertOutput(bfoOn);
@@ -736,7 +735,7 @@ void show_battery_voltage()
     auto vbat_cv = vbat_raw * 123ul / 256;     // Vref * 1.5 / 1023
 
     char vbat_str[5]; // TODO: check convertToChar() correctness
-    convertToChar(vbat_cv, vbat_str, sizeof(vbat_str)-1, 2, '.');
+    convertToChar(vbat_cv, vbat_str, sizeof(vbat_str)-1, 2);
 
     oled.setCursor(0, 3);
     oled.print("Vbat: ");
