@@ -122,7 +122,7 @@ const uint16_t cmd_0x15_size = sizeof cmd_0x15;         // Array of lines where 
 
 const uint8_t app_id =  39; // Useful to check the EEPROM content before processing useful data
 const int eeprom_address = 0;
-long storeTime = millis();
+unsigned long storeTime = 0;
 
 const char *bandModeDesc[] = {"FM ", "LSB", "USB", "AM "};
 uint8_t currentMode = FM;
@@ -135,8 +135,8 @@ bool fmStereo = true;
 
 int currentBFO = 0;
 
-long elapsedRSSI = millis();
-long elapsedButton = millis();
+unsigned long elapsedRSSI = 0;
+unsigned long elapsedButton = 0;
 
 // Encoder control variables
 volatile int8_t encoderCount = 0;
@@ -437,7 +437,7 @@ void showBFO()
 
 char *stationName;
 char bufferStatioName[20];
-long rdsElapsed = millis();
+unsigned long rdsElapsed = 0;
 
 char oldBuffer[15];
 
@@ -693,6 +693,8 @@ void checkRDS()
     if (si4735.getRdsSync() && si4735.getRdsSyncFound())
     {
       stationName = si4735.getRdsText0A();
+      // BUG: RDS update may be lost once due millis() wrap
+      // TODO: use separate flag for RDS update
       if (stationName != NULL && (millis() - rdsElapsed) > 10 ) {
         showRDSStation();
         rdsElapsed = millis();
