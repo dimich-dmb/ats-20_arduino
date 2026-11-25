@@ -139,11 +139,14 @@ long elapsedRSSI = millis();
 long elapsedButton = millis();
 
 // Encoder control variables
-volatile int encoderCount = 0;
+volatile int8_t encoderCount = 0;
 
 // Some variables to check the SI4735 status
 uint16_t currentFrequency;
 uint16_t previousFrequency;
+uint16_t minFreq;
+uint16_t maxFreq;
+uint16_t bandWidth;
 uint8_t currentStep = 1;
 uint8_t currentBFOStep = 25;
 
@@ -220,7 +223,7 @@ typedef struct
 Band band[] = {
   {FM_BAND_TYPE, 6400,  8400,  7000, 10, 0},  // FM from 64 to 84 MHz
   {FM_BAND_TYPE, 8400, 10800, 10570, 10, 0},
-  {LW_BAND_TYPE,   100,   530,   300, 1, 4},
+  {LW_BAND_TYPE,   149,   530,   300, 1, 4},
   {MW_BAND_TYPE,   531,  1701,   783, 9, 4},   // MW for Europe, Africa and Asia
   {SW_BAND_TYPE,  1800,  3500,  1900, 5, 4}, // 160 meters
   {SW_BAND_TYPE,  3500,  3800,  3650, 1, 4}, // 80 meters amateur
@@ -248,19 +251,26 @@ SI4735 si4735;
 
 // Use Rotary.h and  Rotary.cpp implementation to process encoder via interrupt
 void rotaryEncoder()
-{ // rotary encoder events
+{
   uint8_t encoderStatus = encoder.process();
-  if (encoderStatus)
-  {
-    if (encoderStatus == DIR_CW)
-    {
-      encoderCount = 1;
-    }
-    else
-    {
-      encoderCount = -1;
-    }
+  int8_t ecnt = encoderCount;
+
+  switch (encoderStatus) {
+    case DIR_CW:
+      if (ecnt < 127)
+        ecnt++;
+      break;
+
+    case DIR_CCW:
+      if (ecnt > -127)
+        ecnt--;
+      break;
+
+    default:
+      return;
   }
+
+  encoderCount = ecnt;
 }
 
 /*
@@ -529,20 +539,23 @@ void resetEepromDelay() {
 void useBand()
 {
   cleanBfoRdsInfo();
+
+  minFreq = band[bandIdx].minimumFreq;
+  maxFreq = band[bandIdx].maximumFreq;
+  bandWidth = maxFreq - minFreq + 1;
+
   if (band[bandIdx].bandType == FM_BAND_TYPE)
   {
     currentMode = FM;
     si4735.setTuneFrequencyAntennaCapacitor(0);
-    si4735.setFM(band[bandIdx].minimumFreq, band[bandIdx].maximumFreq, band[bandIdx].currentFreq, band[bandIdx].currentStep);
-    si4735.setSeekFmLimits(band[bandIdx].minimumFreq, band[bandIdx].maximumFreq);
+    si4735.setFM(minFreq, maxFreq, band[bandIdx].currentFreq, band[bandIdx].currentStep);
+    si4735.setSeekFmLimits(minFreq, maxFreq);
     si4735.setSeekFmSpacing(1);
     bfoOn = ssbLoaded = false;
     si4735.setRdsConfig(1, 2, 2, 2, 2);
     bwIdxFM = band[bandIdx].bandwidth;
     si4735.setFmBandwidth(bandwidthFM[bwIdxFM].idx);
-  }
-  else
-  {
+  } else {
     if (band[bandIdx].bandType == MW_BAND_TYPE || band[bandIdx].bandType == LW_BAND_TYPE)
       si4735.setTuneFrequencyAntennaCapacitor(0);
     else
@@ -550,27 +563,25 @@ void useBand()
 
     if (ssbLoaded)
     {
-      si4735.setSSB(band[bandIdx].minimumFreq, band[bandIdx].maximumFreq, band[bandIdx].currentFreq, band[bandIdx].currentStep, currentMode);
+      si4735.setSSB(minFreq, maxFreq, band[bandIdx].currentFreq, band[bandIdx].currentStep, currentMode);
       si4735.setSSBAutomaticVolumeControl(1);
       si4735.setSsbSoftMuteMaxAttenuation(0); // Disable Soft Mute for SSB
       bwIdxSSB = band[bandIdx].bandwidth;
       si4735.setSSBAudioBandwidth(bandwidthSSB[bwIdxSSB].idx);
       si4735.setSSBBfo(currentBFO);
-    }
-    else
-    {
+    } else {
       currentMode = AM;
-      si4735.setAM(band[bandIdx].minimumFreq, band[bandIdx].maximumFreq, band[bandIdx].currentFreq, band[bandIdx].currentStep);
+      si4735.setAM(minFreq, maxFreq, band[bandIdx].currentFreq, band[bandIdx].currentStep);
       si4735.setAutomaticGainControl(disableAgc, agcNdx);
       si4735.setAmSoftMuteMaxAttenuation(6); // // Disable Soft Mute for AM
       bwIdxAM = band[bandIdx].bandwidth;
       si4735.setBandwidth(bandwidthAM[bwIdxAM].idx, 1);
       bfoOn = false;
     }
-    si4735.setSeekAmLimits(band[bandIdx].minimumFreq, band[bandIdx].maximumFreq);           // Consider the range all defined current band
+    si4735.setSeekAmLimits(minFreq, maxFreq);           // Consider the range all defined current band
     si4735.setSeekAmSpacing((band[bandIdx].currentStep > 10) ? 10 : band[bandIdx].currentStep); // Max 10kHz for spacing
   }
-  delay(100);
+  delay(100); // why ?
   currentFrequency = band[bandIdx].currentFreq;
   currentStep = band[bandIdx].currentStep;
   showStatus();
@@ -815,35 +826,63 @@ void setup()
   showStatus();
 }
 
+struct intGuard {
+  intGuard()  { noInterrupts(); }
+  ~intGuard() { interrupts();   }
+};
+
+static inline void process_encoder()
+{
+  int8_t ecnt;
+
+  {
+    intGuard guard;
+    ecnt = encoderCount;
+
+    if (ecnt == 0) {
+      return;
+    }
+
+    encoderCount = 0;
+  }
+
+  resetEepromDelay();
+
+  if (bfoOn) {
+    // TODO: clamp to ±16383
+    currentBFO += currentBFOStep * ecnt;
+    si4735.setSSBBfo(currentBFO);
+    previousFrequency = 0;  // Forces eeprom update
+    showBFO();
+    return;
+  }
+
+  // TODO: come up with nice wrap-around
+  // TODO: avoid dividions and overcomplicated arithmetics:
+  //       separate positive / negative ecnt branches
+  // TODO: consider snap to grid
+  unsigned int position = currentFrequency - minFreq;
+  unsigned int channel = position / currentStep;
+  unsigned int offset = position % currentStep;
+  unsigned int nchannels = (bandWidth + currentStep - offset - 1) / currentStep;
+
+  channel = ((static_cast<int>(channel) + ecnt) % static_cast<int>(nchannels)
+            + nchannels) % nchannels;
+
+  currentFrequency = minFreq + (channel * currentStep + offset) % bandWidth;
+
+  si4735.setFrequency(currentFrequency);
+
+  seekDirection = (ecnt > 0) ? 1 : 0;
+
+  // Show the current frequency only if it has changed
+  currentFrequency = si4735.getFrequency();
+  showFrequency();
+}
+
 void loop()
 {
-  // Check if the encoder has moved.
-  if (encoderCount != 0)
-  {
-    if (bfoOn)
-    {
-      currentBFO = (encoderCount == 1) ? (currentBFO + currentBFOStep) : (currentBFO - currentBFOStep);
-      si4735.setSSBBfo(currentBFO);
-      previousFrequency = 0;  // Forces eeprom update
-      showBFO();
-    }
-    else
-    {
-      if (encoderCount == 1) {
-        si4735.frequencyUp();
-        seekDirection = 1;
-      }
-      else {
-        si4735.frequencyDown();
-        seekDirection = 0;
-      }
-      // Show the current frequency only if it has changed
-      currentFrequency = si4735.getFrequency();
-      showFrequency();
-    }
-    encoderCount = 0;
-    resetEepromDelay();
-  }
+  process_encoder();
 
   // Check button commands
   if ((millis() - elapsedButton) > MIN_ELAPSED_TIME)
