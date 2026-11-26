@@ -338,17 +338,17 @@ void convertToChar(uint16_t value, char *strValue, uint8_t len, uint8_t dot)
 // Show current frequency
 void showFrequency()
 {
-  char *unit;
-  char *bandMode;
+  const char *unit;
+  const char *bandMode;
   char freqDisplay[10];
 
   if (band[bandIdx].bandType == FM_BAND_TYPE)
   {
     convertToChar(currentFrequency, freqDisplay, 5, 3);
-    unit = (char *)"MHz";
+    unit = "MHz";
   }
   else {
-    unit = (char *)"kHz";
+    unit = "kHz";
     if (band[bandIdx].bandType == MW_BAND_TYPE || band[bandIdx].bandType == LW_BAND_TYPE)
       convertToChar(currentFrequency, freqDisplay, 5, 0);
     else
@@ -365,10 +365,7 @@ void showFrequency()
   oled.setFont(FONT6X8);
   oled.invertOutput(false);
 
-  if (currentFrequency < 520)
-    bandMode = (char *) "LW  ";
-  else
-    bandMode = (char *) bandModeDesc[currentMode];
+  bandMode = currentFrequency < 520 ? "LW  " : bandModeDesc[currentMode];
 
   oled.setCursor(0, 0);
   oled.print(bandMode);
