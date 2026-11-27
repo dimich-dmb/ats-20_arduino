@@ -203,7 +203,6 @@ uint8_t bwIdxFM = bwIdxFM_default;
 
 // Atenuação and AGC
 uint8_t agcIdx = 0;
-uint8_t disableAgc = 0;
 uint8_t agcNdx = 0;
 
 /*
@@ -510,10 +509,10 @@ void showStatus()
     oled.setCursor(0, 1);
     oled.print("     ");
     oled.setCursor(0, 1);
-    if (agcIdx == 0 ) {
+    if (agcIdx == 0) {
         oled.print("AGC");
     } else {
-        oled.print("- ");
+        oled.print('-');
         oled.print(agcNdx);
     }
 
@@ -570,7 +569,7 @@ void useBand()
         } else {
             currentMode = AM;
             si4735.setAM(minFreq, maxFreq, band[bandIdx].currentFreq, band[bandIdx].currentStep);
-            si4735.setAutomaticGainControl(disableAgc, agcNdx);
+            si4735.setAutomaticGainControl(agcIdx != 0, agcNdx);
             si4735.setAmSoftMuteMaxAttenuation(6); // // Disable Soft Mute for AM
             bwIdxAM = band[bandIdx].bandwidth;
             si4735.setBandwidth(bandwidthAM[bwIdxAM].idx, 1);
@@ -949,29 +948,30 @@ static void button_bfo_switch()
 
 static void button_agc_switch()
 {
-    if (agcIdx == 0) {
-        disableAgc = 0; // Turns AGC ON
-        agcNdx = 0;
-        agcIdx = 1;
-    } else if (agcIdx == 1) {
-        disableAgc = 1; // Turns AGC OFF
+    switch (agcIdx) {
+    case 0:
         agcNdx = 0;     // Sets minimum attenuation
-        agcIdx = 2;
-    } else if (agcIdx == 2) {
-        disableAgc = 1; // Turns AGC OFF
+        agcIdx = 1;
+        break;
+    case 1:
         agcNdx = 10;    // Increases the attenuation AM/SSB AGC Index  = 10
-        agcIdx = 3;
-    } else if (agcIdx == 3) {
-        disableAgc = 1; // Turns AGC OFF
+        agcIdx = 2;
+        break;
+    case 2:
         agcNdx = 20;    // Increases the attenuation AM/SSB AGC Index  = 20
-        agcIdx = 4;
-    } else if (agcIdx == 4) {
-        disableAgc = 1; // Turns AGC OFF
+        agcIdx = 3;
+        break;
+    case 3:
         agcNdx = 36;    // Sets maximum attenuation
-        agcIdx = 0;
+        agcIdx = 4;
+        break;
+    case 4:
+        agcNdx = 0;
+        agcIdx = 0;     // Turns AGC ON
+        break;
     }
     // Sets AGC on/off an gain
-    si4735.setAutomaticGainControl(disableAgc, agcNdx);
+    si4735.setAutomaticGainControl(agcIdx != 0, agcNdx);
     showStatus();
     resetEepromDelay();
 }
