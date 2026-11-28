@@ -933,8 +933,8 @@ static inline void process_keys()
             si4735.seekStationProgress(showFrequencySeek, checkStopSeeking, seekDirection);
             delay(30);
             if (currentMode == FM) {
-                float f = round(si4735.getFrequency() / 10.0);
-                currentFrequency = (uint16_t) f * 10; // adjusts band space from 1 (10kHz) to 10 (100 kHz)
+                // adjusts band space from 1 (10kHz) to 10 (100 kHz)
+                currentFrequency = ((si4735.getFrequency() / 5) + 1) / 2 * 10;
                 si4735.setFrequency(currentFrequency);
             } else {
                 currentFrequency = si4735.getFrequency(); //
